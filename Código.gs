@@ -1,3 +1,35 @@
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+
+    // seu código aqui (salvar imagens, etc.)
+
+    const response = {
+      status: "ok",
+      message: "Dados recebidos com sucesso!"
+    };
+
+    return ContentService
+      .createTextOutput(JSON.stringify(response))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*") // 🔥 Permite acesso de qualquer site
+      .setHeader("Access-Control-Allow-Methods", "POST") // 🔥 Permite POST
+      .setHeader("Access-Control-Allow-Headers", "Content-Type"); // 🔥 Permite JSON
+  } catch (err) {
+    const erro = {
+      status: "erro",
+      message: err.toString()
+    };
+
+    return ContentService
+      .createTextOutput(JSON.stringify(erro))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*")
+      .setHeader("Access-Control-Allow-Methods", "POST")
+      .setHeader("Access-Control-Allow-Headers", "Content-Type");
+  }
+}
+
 const SHEET_NAME = "Registros";
 const FOLDER_ID = "11Av25yquRi0O4gy9txWfjn9LIaewR3GK"; // <<< substitua pelo ID correto
 
