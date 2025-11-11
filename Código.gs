@@ -1,57 +1,41 @@
 const SHEET_NAME = "Registros";
-const FOLDER_ID = "11Av25yquRi0O4gy9txWfjn9LIaewR3GK"; // substitua pelo ID correto
+const FOLDER_ID = "11Av25yquRi0O4gy9txWfjn9LIaewR3GK"; // seu ID de pasta no Drive
 
-// ✅ Trata requisições OPTIONS (preflight)
+// 🔥 TRATA O PRÉ-REQUISITO CORS (preflight OPTIONS)
 function doGet(e) {
   return ContentService.createTextOutput("OK")
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
-// ✅ Função principal — trata POST
+// 🔥 LIDA COM OPTIONS (CORS preflight)
+function doOptions(e) {
+  return ContentService
+    .createTextOutput("")
+    .setMimeType(ContentService.MimeType.TEXT)
+    .setHeader("Access-Control-Allow-Origin", "*")
+    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    .setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+// 🔥 TRATA O POST PRINCIPAL
 function doPost(e) {
-  const response = ContentService.createTextOutput();
-  response.setMimeType(ContentService.MimeType.JSON);
+  const output = ContentService.createTextOutput();
+  output.setMimeType(ContentService.MimeType.JSON);
 
   try {
-    // 🔥 Adiciona CORS dinamicamente
-    const setCorsHeaders = (output) => {
-      const resp = output;
-      const headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      };
-      for (const key in headers) {
-        try { resp[key] = headers[key]; } catch (e) {}
-      }
-      return resp;
-    };
-
     if (!e || !e.postData || !e.postData.contents) {
-      response.setContent(JSON.stringify({ status: "erro", message: "Requisição vazia" }));
-      return setCorsHeaders(response);
+      return withCors(JSON.stringify({ status: "erro", message: "Corpo vazio" }));
     }
 
     const data = JSON.parse(e.postData.contents);
 
     if (!data.masterImage || !data.newImage) {
-      response.setContent(JSON.stringify({ status: "erro", message: "Imagens não enviadas" }));
-      return setCorsHeaders(response);
+      return withCors(JSON.stringify({ status: "erro", message: "Imagens ausentes" }));
     }
 
-    // 🗂️ Acessa pasta
-    let folder;
-    try {
-      folder = DriveApp.getFolderById(FOLDER_ID);
-    } catch (err) {
-      response.setContent(JSON.stringify({
-        status: "erro",
-        message: "Erro ao acessar pasta: " + err.message
-      }));
-      return setCorsHeaders(response);
-    }
+    const folder = DriveApp.getFolderById(FOLDER_ID);
 
-    // 📸 Cria arquivos
+    // Salva imagens
     const masterFile = folder.createFile(
       Utilities.base64Decode(data.masterImage),
       "master_" + Date.now() + ".jpg",
@@ -63,21 +47,16 @@ function doPost(e) {
       MimeType.JPEG
     );
 
-    // 🎯 Resultados simulados
+    // Simula resultado
     const score = Math.round((8 + Math.random() * 2) * 10) / 10;
     const desvio = "Leve variação no magenta";
     const ajuste = "M: -3%";
     const aceitavel = score > 8.5 ? "Sim" : "Não";
 
-    // 📊 Registra na planilha
+    // Grava na planilha
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) {
-      response.setContent(JSON.stringify({ status: "erro", message: "Aba não encontrada." }));
-      return setCorsHeaders(response);
-    }
-
-    const row = [
+    sheet.appendRow([
       Utilities.getUuid(),
       new Date(),
       data.operador || "",
@@ -89,20 +68,27 @@ function doPost(e) {
       ajuste,
       aceitavel,
       ""
-    ];
-    sheet.appendRow(row);
+    ]);
 
-    response.setContent(JSON.stringify({
+    return withCors(JSON.stringify({
       status: "ok",
       message: "Registro salvo com sucesso!"
     }));
-    return setCorsHeaders(response);
 
   } catch (err) {
-    response.setContent(JSON.stringify({
+    return withCors(JSON.stringify({
       status: "erro",
       message: "Erro interno: " + err.message
     }));
-    return response;
   }
+}
+
+// 🔧 Adiciona CORS aos retornos
+function withCors(content) {
+  return ContentService
+    .createTextOutput(content)
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader("Access-Control-Allow-Origin", "*")
+    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    .setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
