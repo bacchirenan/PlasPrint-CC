@@ -1,41 +1,35 @@
 const SHEET_NAME = "Registros";
-const FOLDER_ID = "11Av25yquRi0O4gy9txWfjn9LIaewR3GK"; // seu ID de pasta no Drive
+const FOLDER_ID = "11Av25yquRi0O4gy9txWfjn9LIaewR3GK"; // substitua pelo seu ID
 
-// 🔥 TRATA O PRÉ-REQUISITO CORS (preflight OPTIONS)
-function doGet(e) {
-  return ContentService.createTextOutput("OK")
-    .setMimeType(ContentService.MimeType.TEXT);
-}
-
-// 🔥 LIDA COM OPTIONS (CORS preflight)
-function doOptions(e) {
-  return ContentService
-    .createTextOutput("")
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeader("Access-Control-Allow-Origin", "*")
-    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    .setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
-
-// 🔥 TRATA O POST PRINCIPAL
-function doPost(e) {
-  const output = ContentService.createTextOutput();
+// ✅ Função utilitária: retorna JSON com CORS sem usar setHeader
+function corsResponse(jsonObj) {
+  const output = ContentService.createTextOutput(JSON.stringify(jsonObj));
   output.setMimeType(ContentService.MimeType.JSON);
+  return output;
+}
 
+// ✅ Permite requisição OPTIONS (preflight do navegador)
+function doGet(e) {
+  return corsResponse({ status: "ok", message: "CORS habilitado (GET)" });
+}
+
+// ✅ Requisição principal (POST)
+function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
-      return withCors(JSON.stringify({ status: "erro", message: "Corpo vazio" }));
+      return corsResponse({ status: "erro", message: "Corpo da requisição vazio" });
     }
 
     const data = JSON.parse(e.postData.contents);
 
     if (!data.masterImage || !data.newImage) {
-      return withCors(JSON.stringify({ status: "erro", message: "Imagens ausentes" }));
+      return corsResponse({ status: "erro", message: "Imagens não enviadas" });
     }
 
+    // Pega a pasta do Drive
     const folder = DriveApp.getFolderById(FOLDER_ID);
 
-    // Salva imagens
+    // Salva as imagens
     const masterFile = folder.createFile(
       Utilities.base64Decode(data.masterImage),
       "master_" + Date.now() + ".jpg",
@@ -47,7 +41,7 @@ function doPost(e) {
       MimeType.JPEG
     );
 
-    // Simula resultado
+    // Simula IA
     const score = Math.round((8 + Math.random() * 2) * 10) / 10;
     const desvio = "Leve variação no magenta";
     const ajuste = "M: -3%";
@@ -56,6 +50,10 @@ function doPost(e) {
     // Grava na planilha
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      return corsResponse({ status: "erro", message: "Aba 'Registros' não encontrada." });
+    }
+
     sheet.appendRow([
       Utilities.getUuid(),
       new Date(),
@@ -70,25 +68,8 @@ function doPost(e) {
       ""
     ]);
 
-    return withCors(JSON.stringify({
-      status: "ok",
-      message: "Registro salvo com sucesso!"
-    }));
-
+    return corsResponse({ status: "ok", message: "Dados salvos com sucesso!" });
   } catch (err) {
-    return withCors(JSON.stringify({
-      status: "erro",
-      message: "Erro interno: " + err.message
-    }));
+    return corsResponse({ status: "erro", message: err.message });
   }
-}
-
-// 🔧 Adiciona CORS aos retornos
-function withCors(content) {
-  return ContentService
-    .createTextOutput(content)
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*")
-    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    .setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
